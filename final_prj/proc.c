@@ -80,7 +80,11 @@ userinit(void)
 {
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
-  
+
+  //add on
+  cprintf("where the hell it gets started\n");
+  //add on
+
   p = allocproc();
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
@@ -276,6 +280,7 @@ scheduler(void)
 		sti();
 
 		// Loop over process table looking for process to run.
+		//I believe round robin starts here
 		acquire(&ptable.lock);
 		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
 		{
@@ -284,16 +289,19 @@ scheduler(void)
       			// Switch to chosen process.  It is the process's job
       			// to release ptable.lock and then reacquire it
       			// before jumping back to us.
-      			proc = p;
-      			switchuvm(p);
+
+      			proc = p;		//give pointer back to the process
+      			switchuvm(p);		
       			p->state = RUNNING;
       			swtch(&cpu->scheduler, proc->context);
       			switchkvm();
       			// Process is done running for now.
       			// It should have changed its p->state before coming back.
       			proc = 0;
+
     		}
     		release(&ptable.lock);
+		//I believe round robin ends here
   	}
 }
 

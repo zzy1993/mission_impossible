@@ -46,7 +46,6 @@ int main(int argc, char **argv)
 		//printf(1, "process %d elapses 1 second\n", (int)getpid());
 		counter++;
 		printf(1, "process %d counter value is %d\n", (int)getpid(), counter);
-
 		if(counter==20)
 			break;
 	}
