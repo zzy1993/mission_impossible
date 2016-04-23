@@ -26,6 +26,7 @@ int uptime(void);
 
 //assignment add-on
 int date(struct rtcdate*);
+int gain(void);
 //end of assignment add-on
 
 // ulib.c

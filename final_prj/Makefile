@@ -175,6 +175,7 @@ UPROGS=\
 	_date\
 	_hello\
 	_hello2\
+	_fuck\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

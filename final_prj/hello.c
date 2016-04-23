@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 		counter++;
 		printf(1, "process %d counter value is %d\n", (int)getpid(), counter);
 
-		if(counter==20)
+		if(counter==100)
 			break;
 	}
 

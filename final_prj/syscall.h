@@ -23,5 +23,6 @@
 
 //add on
 #define SYS_date   22
+#define SYS_gain   23
 //add on
 

@@ -26,6 +26,12 @@ sys_wait(void)
   return wait();
 }
 
+int sys_gain(void)
+{
+	//gain();
+	return 0;
+}
+
 int
 sys_kill(void)
 {

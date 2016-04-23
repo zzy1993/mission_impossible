@@ -101,6 +101,7 @@ extern int sys_uptime(void);
 
 //add on
 extern int sys_date(void);
+extern int sys_gain(void);
 //add on
 
 static int (*syscalls[])(void) = {
@@ -128,6 +129,7 @@ static int (*syscalls[])(void) = {
 
 //add on
 [SYS_date]    sys_date,
+[SYS_gain]    sys_gain,
 //add on
 };
 

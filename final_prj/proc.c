@@ -20,6 +20,11 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+//global variables to count total high and low priority
+int total_high_prio=0;
+int total_low_prio=0;
+
+
 void
 pinit(void)
 {
@@ -32,7 +37,7 @@ pinit(void)
 // state required to run in the kernel.
 // Otherwise return 0.
 static struct proc*
-allocproc(void)
+allocproc(void)          //first process allocation
 {
   struct proc *p;
   char *sp;
@@ -47,6 +52,12 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+
+  //add on
+  p->time_runs=0;	//initial set of process time
+  p->num_tickets=0; 
+  //add on
+
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -82,7 +93,7 @@ userinit(void)
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
   //add on
-  cprintf("where the hell it gets started\n");
+  cprintf("userinit function initiated\n");
   //add on
 
   p = allocproc();
@@ -103,7 +114,10 @@ userinit(void)
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
-  p->state = RUNNABLE;
+  p->state = RUNNABLE;		//this is where it sets the process to be runnable
+  p->time_runs=0;		//calculate the time it runs the process. 
+  p->num_tickets=0;
+  p->priority_level=1;
 }
 
 // Grow current process's memory by n bytes.
@@ -139,6 +153,8 @@ fork(void)
   if((np = allocproc()) == 0)
     return -1;
 
+ 
+
   // Copy process state from p.
   if((np->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
     kfree(np->kstack);
@@ -164,7 +180,13 @@ fork(void)
 
   // lock to force the compiler to emit the np->state write last.
   acquire(&ptable.lock);
+  cprintf("process %d initiated with fork function\n", pid);
   np->state = RUNNABLE;
+  //add on 
+  np->time_runs = 0;
+  np->num_tickets=0;
+  //add on
+  np->priority_level=1;    	//set up first process program
   release(&ptable.lock);
   
   return pid;
@@ -198,6 +220,10 @@ exit(void)
   acquire(&ptable.lock);
 
   // Parent might be sleeping in wait().
+  cprintf("process %d is dead in exit function\n", proc->pid);
+  cprintf("parent pid is %d in exit function\n", proc->parent->pid);
+  cprintf("process %d runs %d times\n", proc->pid, proc->time_runs);
+  cprintf("parent process %d has run %d times\n", proc->parent->pid, proc->parent->time_runs);
   wakeup1(proc->parent);
 
   // Pass abandoned children to init.
@@ -205,7 +231,10 @@ exit(void)
     if(p->parent == proc){
       p->parent = initproc;
       if(p->state == ZOMBIE)
+      {
+	cprintf("process %d wakes up\n", proc->pid);
         wakeup1(initproc);
+      }
     }
   }
 
@@ -253,6 +282,7 @@ wait(void)
       return -1;
     }
 
+    //cprintf("process %d goes to sleep\n", proc->pid);
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
     sleep(proc, &ptable.lock);  //DOC: wait-sleep
   }
@@ -266,11 +296,19 @@ wait(void)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
+
 void
+gain(void)
+{
+	cprintf("process");
+}
+
+void			//change scheduler to be multi-level feedback queue
 scheduler(void)
 {
   	struct proc *p;
-	cprintf("enter process\n");
+	cprintf("scheduler initiated with cpu: %d\n", cpu->id);
+	//int counter=0;
 	//cprintf("current pid is: %d\n", proc->pid);
   	for(;;)
 	{
@@ -279,31 +317,36 @@ scheduler(void)
 		// Enable interrupts on this processor.
 		sti();
 
-		// Loop over process table looking for process to run.
-		//I believe round robin starts here
+		//Loop over process table looking for process to run.
+		//Round robin starts here, one for-loop is a time slice?
+		//Default round robin, no touch
 		acquire(&ptable.lock);
-		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)  //find available process
 		{
 	        	if(p->state != RUNNABLE)
+			{
         			continue;
+			}
       			// Switch to chosen process.  It is the process's job
       			// to release ptable.lock and then reacquire it
       			// before jumping back to us.
 
       			proc = p;		//give pointer back to the process
-      			switchuvm(p);		
+      			switchuvm(p);     		
       			p->state = RUNNING;
       			swtch(&cpu->scheduler, proc->context);
       			switchkvm();
       			// Process is done running for now.
       			// It should have changed its p->state before coming back.
-      			proc = 0;
-
+			//add a system call to record info
+			p->time_runs++;
+			proc = 0;
     		}
     		release(&ptable.lock);
-		//I believe round robin ends here
+		//Round robin ends here
   	}
 }
+
 
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state.
@@ -330,6 +373,7 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
+  //proc->time_runs=0;
   sched();
   release(&ptable.lock);
 }
@@ -380,6 +424,11 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   proc->chan = chan;
   proc->state = SLEEPING;
+
+  //add on
+  cprintf(" process %d goes to sleep in sleep function\n", proc->pid);
+  //add on
+
   sched();
 
   // Tidy up.
@@ -399,10 +448,15 @@ static void
 wakeup1(void *chan)
 {
   struct proc *p;
-
+  //cprintf("process wake up\n");
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
     if(p->state == SLEEPING && p->chan == chan)
+    {
       p->state = RUNNABLE;
+      //p->time_runs=0;
+    }
+  }
 }
 
 // Wake up all processes sleeping on chan.
@@ -412,6 +466,7 @@ wakeup(void *chan)
   acquire(&ptable.lock);
   wakeup1(chan);
   release(&ptable.lock);
+  //cprintf("got times\n");
 }
 
 // Kill the process with the given pid.
@@ -428,7 +483,10 @@ kill(int pid)
       p->killed = 1;
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
+      {
         p->state = RUNNABLE;
+        //p->time_runs=0;
+      }
       release(&ptable.lock);
       return 0;
     }
@@ -470,6 +528,7 @@ procdump(void)
       for(i=0; i<10 && pc[i] != 0; i++)
         cprintf(" %p", pc[i]);
     }
+    cprintf("process dump");
     cprintf("\n");
   }
 }
