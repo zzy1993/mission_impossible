@@ -23,7 +23,9 @@ static void wakeup1(void *chan);
 //global variables to count total high and low priority
 int total_high_prio=0;
 int total_low_prio=0;
-
+int high_prio_turns=0;
+int low_prio_turns=0;
+int mandatory_proc=0;
 
 void
 pinit(void)
@@ -56,6 +58,7 @@ found:
   //add on
   p->time_runs=0;	//initial set of process time
   p->num_tickets=0; 
+  p->priority_level=1;
   //add on
 
   release(&ptable.lock);
@@ -116,8 +119,8 @@ userinit(void)
 
   p->state = RUNNABLE;		//this is where it sets the process to be runnable
   p->time_runs=0;		//calculate the time it runs the process. 
-  p->num_tickets=0;
   p->priority_level=1;
+  p->not_first_process=0;
 }
 
 // Grow current process's memory by n bytes.
@@ -187,6 +190,7 @@ fork(void)
   np->num_tickets=0;
   //add on
   np->priority_level=1;    	//set up first process program
+  np->not_first_process=1;
   release(&ptable.lock);
   
   return pid;
@@ -316,35 +320,132 @@ scheduler(void)
 
 		// Enable interrupts on this processor.
 		sti();
-
+		
 		//Loop over process table looking for process to run.
 		//Round robin starts here, one for-loop is a time slice?
 		//Default round robin, no touch
 		acquire(&ptable.lock);
+		//pre-process the processes coming in to the scheduler
+
+		for(p = ptable.proc; p<&ptable.proc[NPROC]; p++)
+		{
+			if(p->state!=RUNNABLE)
+				continue;
+			if(p->priority_level==1 && p->time_runs==0 && p->pid!=1 && p->pid!=2)
+				total_high_prio++;
+			else if(p->priority_level==0)
+				total_low_prio++;
+			if(p->pid==1 || p->pid==2)
+				mandatory_proc=1;
+		}		
+		
+		if(mandatory_proc)	//process 1 and 2 are mandatory
+		{
+			for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)  //find available process
+			{
+	        		if(p->state != RUNNABLE)
+				{
+        				continue;
+				}
+      				// Switch to chosen process.  It is the process's job
+      				// to release ptable.lock and then reacquire it
+      				// before jumping back to us.
+      				proc = p;		//give pointer back to the process
+     				switchuvm(p);     		
+      				p->state = RUNNING;
+      				swtch(&cpu->scheduler, proc->context);
+      				switchkvm();
+				//p->time_runs++;
+      				// Process is done running for now.
+      				// It should have changed its p->state before coming back.
+				//add a system call to record info
+				proc = 0;
+    			}
+			mandatory_proc=0;
+		}
+	
+		else if(total_high_prio)
+		{
+			for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)  //find available process
+			{
+	        		if(p->state != RUNNABLE)
+				{
+        				continue;
+				}
+      				// Switch to chosen process.  It is the process's job
+      				// to release ptable.lock and then reacquire it
+      				// before jumping back to us.
+				if(p->priority_level==1)
+				{
+      					proc = p;		//give pointer back to the process
+     					switchuvm(p);     		
+      					p->state = RUNNING;
+      					swtch(&cpu->scheduler, proc->context);
+      					switchkvm();
+					p->priority_level=0;
+				}
+      				// Process is done running for now.
+      				// It should have changed its p->state before coming back.
+				//add a system call to record info
+				if(p->state==RUNNABLE)
+				{
+					total_high_prio--;
+					total_low_prio++;
+					p->priority_level=0;
+					p->time_runs++;
+				}				
+				proc = 0;
+    			}
+		}
+		else if(total_low_prio)
+		{
+			for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)  //find available process
+			{
+	        		if(p->state != RUNNABLE)
+				{
+        				continue;
+				}
+      				// Switch to chosen process.  It is the process's job
+      				// to release ptable.lock and then reacquire it
+      				// before jumping back to us.
+      				proc = p;		//give pointer back to the process
+     				switchuvm(p);     		
+      				p->state = RUNNING;
+      				swtch(&cpu->scheduler, proc->context);
+      				switchkvm();
+				//p->time_runs++;
+      				// Process is done running for now.
+      				// It should have changed its p->state before coming back.
+				//add a system call to record info
+				proc=0;
+			}
+		}		
+		
+		/*
 		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)  //find available process
 		{
 	        	if(p->state != RUNNABLE)
 			{
-        			continue;
+        				continue;
 			}
       			// Switch to chosen process.  It is the process's job
       			// to release ptable.lock and then reacquire it
       			// before jumping back to us.
-
       			proc = p;		//give pointer back to the process
-      			switchuvm(p);     		
+     			switchuvm(p);     		
       			p->state = RUNNING;
       			swtch(&cpu->scheduler, proc->context);
       			switchkvm();
       			// Process is done running for now.
       			// It should have changed its p->state before coming back.
 			//add a system call to record info
-			p->time_runs++;
 			proc = 0;
-    		}
+    		}*/
     		release(&ptable.lock);
 		//Round robin ends here
   	}
+	//cprintf("%d total high\n", total_high_prio);
+	//cprintf("%d total low\n", total_low_prio);
 }
 
 

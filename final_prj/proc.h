@@ -73,6 +73,8 @@ struct proc {
 
   int time_runs;		//count the time the process has run
 
+  int not_first_process;	//identify if it is the first initialization or not
+
 };
 
 // Process memory is laid out contiguously, low addresses first:
