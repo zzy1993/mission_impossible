@@ -3,12 +3,12 @@
 This is the final project of Operating System, which modified operating system xv6 for following requirement.
 
 ## Overview
-----------------------
+
 Build an MLFQ scheduler with four priority queues; the top queue (numbered 0) has the highest priority and the bottom queue (numbered 3) has the lowest priority. When a process uses up its time-slice, it should be downgraded to the next (lower) priority level. The time-slices for higher priorities will be shorter than lower priorities.
 
 
 ## Objectives
-----------------
+
 There are two objectives to this assignment:
 
 To familiarize yourself with the details of a MLFQ scheduler.
@@ -20,10 +20,12 @@ In this project, you'll be implementing a simplified multi-level feedback queue 
 The basic idea is simple. Build an MLFQ scheduler with four priority queues; the top queue (numbered 0) has the highest priority and the bottom queue (numbered 3) has the lowest priority. When a process uses up its time-slice, it should be downgraded to the next (lower) priority level. The time-slices for higher priorities will be shorter than lower priorities.
 
 ## Details
----------------
-You have three specific tasks for this part of the project.
 
-1)Implement MLFQ: Your MLFQ scheduler will be very simple and will not have any mechanisms to prevent gaming or starvation. Specifically, your MLFQ scheduler should follow these very precise rules:
+Three specific tasks is set for the project.
+
+### Implement MLFQ: 
+
+Your MLFQ scheduler will be very simple and will not have any mechanisms to prevent gaming or starvation. Specifically, your MLFQ scheduler should follow these very precise rules:
 
 When a process is first created, it should be placed at the highest priority. Place this process at the end of the high priority queue.
 At any given point in time, the highest-priority ready process should be run.
@@ -34,6 +36,10 @@ Whenever a process is moved to a different priority level, it should be placed a
 A round-robin scheduler should be used for processes at the lowest priority.
 There is no mechanism for the priority of a process to be raised again. (Yes, a process could starve and never recieve any CPU if higher-priority processes keep arriving; ignore this!)
 
-2)Create getpinfo(): You'll need one new system call for this project: int getpinfo(struct pstat *) . This routine returns some basic information about each process: its process ID, how many times it has been chosen to run, and which queue it is currently on (0, 1, 2, or 3). To do this, you will need to fill in the pstat structure as defined here: here. Do not change the names of the fields in pstat.h
+### Create getpinfo(): 
 
-3)Make a graph: You should make a graph that shows some timelines of processes running with your scheduler, including which queue each process is on, and how much CPU they received. To obtain the info for your graph, you should use the getpinfo() system call. Make up a workload (or set of workloads) that vary how long each process uses the CPU before voluntarily relinquishing the CPU (e.g., by calling sleep()). Think about what types of workloads will show interesting and useful results. Use the graphs to prove to us that your scheduler is working as desired.
+You'll need one new system call for this project: int getpinfo(struct pstat *) . This routine returns some basic information about each process: its process ID, how many times it has been chosen to run, and which queue it is currently on (0, 1, 2, or 3). To do this, you will need to fill in the pstat structure as defined here: here. Do not change the names of the fields in pstat.h
+
+### Make a graph: 
+
+You should make a graph that shows some timelines of processes running with your scheduler, including which queue each process is on, and how much CPU they received. To obtain the info for your graph, you should use the getpinfo() system call. Make up a workload (or set of workloads) that vary how long each process uses the CPU before voluntarily relinquishing the CPU (e.g., by calling sleep()). Think about what types of workloads will show interesting and useful results. Use the graphs to prove to us that your scheduler is working as desired.
